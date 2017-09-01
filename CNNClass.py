@@ -4,11 +4,11 @@ from math import exp, tanh
 
 
 def sigmoid(y):
-    return tanh(y)
+    return (1 / (1 + exp(-y))) - 0.5
 
 
 def d_sigmoid(y):
-    return 1 - (y * y)
+    return (y + 0.5) * (0.5 - y)
 
 
 def mod(k, n):
@@ -28,7 +28,7 @@ class CNNSearch():
         self.names = names
 
         self.filters = [
-            [[(2 * random()) - 1  for j in range(filter_size)] for i in range(filter_size)],
+            [[(2 * random()) - 1 for j in range(filter_size)] for i in range(filter_size)],
             [[(2 * random()) - 1 for j in range(filter_size)] for i in range(filter_size)],
             [[(2 * random()) - 1 for j in range(filter_size)] for i in range(filter_size)],
             [[(2 * random()) - 1 for j in range(filter_size)] for i in range(filter_size)],
@@ -52,7 +52,7 @@ class CNNSearch():
     #    self.ih_weights = [[(2 * random()) - 1 for j in range(int(fully_input_size))]
     #                       for i in range(len(self.fully_connected[1]))]
         self.io_weights = [[(2 * random()) - 1 for j in range(len(self.fully_connected[1]))]
-                           for i in range(len(self.fully_connected[0]))]
+                           for i in range(int(fully_input_size))]
 
     def multiplication(self, i, j, filter):
         return sum([
@@ -100,10 +100,10 @@ class CNNSearch():
                 for j in range(len(self.pooling_layers[s][0])):
                     self.fully_connected[0].append(self.pooling_layers[s][i][j])
 
-        for i in range(len(self.fully_connected[1])):
-            for j in range(len(self.fully_connected[0])):
-                self.fully_connected[1][i] += self.fully_connected[0][j] * self.io_weights[i][j]
-            self.fully_connected[1][i] = sigmoid(self.fully_connected[1][i])
+        for j in range(len(self.fully_connected[1])):
+            for i in range(len(self.fully_connected[0])):
+                self.fully_connected[1][j] += self.fully_connected[0][i] * self.io_weights[i][j]
+            self.fully_connected[1][j] = sigmoid(self.fully_connected[1][j])
 
 #        for i in range(len(self.fully_connected[2])):
 #            for j in range(len(self.fully_connected[1])):
@@ -132,7 +132,7 @@ class CNNSearch():
         input_d = [0 for i in range(len(self.fully_connected[0]))]
         for i in range(len(input_d)):
             for j in range(len(output_deltas)):
-                input_d[i] += output_deltas[j] * self.io_weights[j][i]
+                input_d[i] += output_deltas[j] * self.io_weights[i][j]
 
         pooling_d = [
             [[0 for j in range(len(self.pooling_layers[s][0]))]
@@ -173,9 +173,9 @@ class CNNSearch():
 #                change = output_deltas[i] * self.fully_connected[1][j]
 #                self.ho_weights[i][j] += learning_coefficient * change
 
-        for i in range(len(self.fully_connected[1])):
-            for j in range(len(self.fully_connected[0])):
-                change = output_deltas[i] * self.fully_connected[0][j]
+        for j in range(len(self.fully_connected[1])):
+            for i in range(len(self.fully_connected[0])):
+                change = output_deltas[j] * self.fully_connected[0][i]
                 self.io_weights[i][j] += learning_coefficient * change
 
         for s in range(len(self.filters)):
@@ -191,10 +191,12 @@ class CNNSearch():
         self.setup_image(image)
         self.feed_forward()
         self.back_propagation(learning_coefficient=0.4, answers=answers)
+        print(self.error(answers))
 
     def training_set(self, image_list, answers_list, n):
         for j in range(n):
             for i in range(len(image_list)):
+                print(i)
                 self.training(image_list[i], answers_list[i])
 
     def get_result(self, image):
