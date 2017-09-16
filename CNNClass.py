@@ -3,7 +3,7 @@ from math import exp
 
 
 def sigmoid(y):
-    return ((1 / (1 + exp(-y))) - 0.5)
+    return (1 / (1 + exp(-y))) - 0.5
 
 
 def d_sigmoid(y):
@@ -207,7 +207,7 @@ class CNNSearch():
     def training(self, image, answers):
         self.setup_image(image)
         self.feed_forward()
-        self.back_propagation(learning_coefficient=0.2, answers=answers)
+        self.back_propagation(learning_coefficient=0.3, answers=answers)
         print(self.error(answers))
 
     def training_set(self, image_list, answers_list, n):
@@ -219,4 +219,4 @@ class CNNSearch():
     def get_result(self, image):
         self.setup_image(image)
         self.feed_forward()
-        return self.fully_connected[2][:]
+        return self.fully_connected[3][:]
