@@ -1,3 +1,4 @@
+import sqlite3 as sql
 from random import random
 from math import exp
 
@@ -17,11 +18,85 @@ def mod(k, n):
 class CNNSearch():
 
     def __init__(
-            self, image_size, names, filter_size, filters_quantity, pooling_size, hidden_1_size, hidden_2_size
+            self, image_size, names, filter_size, filters_quantity, pooling_size, hidden_1_size, hidden_2_size, db_name
     ):
+        self.conn = sql.connect(db_name)
+        self.create_tables(filters_quantity)
         self.setup_network(
             image_size, names, filter_size, filters_quantity, pooling_size, hidden_1_size, hidden_2_size
         )
+
+    def commit(self):
+        self.conn.commit()
+
+    def create_tables(self, filters_quantity):
+        for i in range(filters_quantity):
+            self.conn.execute('create table if not exists filter{}(from_id, to_id, weight)'.format(i))
+        self.conn.execute('create table if not exists ih_weights(from_id, to_id, weight)')
+        self.conn.execute('create table if not exists hh_weights(from_id, to_id, weight)')
+        self.conn.execute('create table if not exists ho_weights(from_id, to_id, weight)')
+
+        self.commit()
+
+    def get_weight(self, i, j, layer):
+        table = ''
+        if layer == 0:
+            table = 'ih_weights'
+        if layer == 1:
+            table = 'hh_weights'
+        if layer == 2:
+            table = 'ho_weights'
+        if layer > 2:
+            table = 'filter{}'.format(layer - 3)
+
+        weight = self.conn.execute('SELECT weight FROM {} WHERE from_id={} AND to_id={}'
+                                .format(table, i, j)).fetchone()
+
+        if weight is None:
+            return 2 * random() - 1
+
+        return weight
+
+    def set_weight(self, i, j, layer, weight):
+        table = ''
+        if layer == 0:
+            table = 'ih_weights'
+        if layer == 1:
+            table = 'hh_weights'
+        if layer == 2:
+            table = 'ho_weights'
+        if layer > 2:
+            table = 'filter{}'.format(layer)
+
+        row_id = self.conn.execute('SELECT rowid FROM {} WHERE from_id={} AND to_id={}'
+                                   .format(table, i, j)).fetchone()
+
+        if row_id is None:
+            sql_insert = (i, j, weight, )
+            self.conn.execute('INSERT INTO {} (from_id, to_id, weight) VALUES (?, ?, ?)'
+                              .format(table), sql_insert)
+        else:
+            row_id = row_id[0]
+            self.conn.execute('UPDATE {} SET weight={} WHERE rowid={}'
+                              .format(table, weight, row_id))
+
+    def db_update(self):
+        for s in range(len(self.filters)):
+            for i in range(len(self.filters[s])):
+                for j in range(len(self.filters[s][i])):
+                    self.set_weight(i, j, s, self.filters[s][i][j])
+
+        for i in range(len(self.ih_weights)):
+            for j in range(len(self.ih_weights[i])):
+                self.set_weight(i, j, 0, self.ih_weights[i][j])
+
+        for i in range(len(self.hh_weights)):
+            for j in range(len(self.hh_weights[i])):
+                self.set_weight(i, j, 1, self.hh_weights[i][j])
+
+        for i in range(len(self.ho_weights)):
+            for j in range(len(self.ho_weights[i])):
+                self.set_weight(i, j, 2, self.ho_weights[i][j])
 
     def setup_image(self, image):
         self.input = image.copy()
@@ -32,7 +107,7 @@ class CNNSearch():
         self.names = names
 
         self.filters = [
-            [[(2 * random()) - 1 for j in range(filter_size)] for i in range(filter_size)]
+            [[self.get_weight(i, j, s + 3) for j in range(filter_size)] for i in range(filter_size)]
             for s in range(filters_quantity)
             ]
 
@@ -47,11 +122,11 @@ class CNNSearch():
         self.fully_connected[2] = [0 for i in range(hidden_2_size)]
         self.fully_connected[3] = [0 for i in range(len(self.names))]
 
-        self.ih_weights = [[(2 * random()) - 1 for j in range(hidden_1_size)]
+        self.ih_weights = [[self.get_weight(i, j, 0) for j in range(hidden_1_size)]
                            for i in range(fully_input_size)]
-        self.hh_weights = [[(2 * random()) - 1 for j in range(hidden_2_size)]
+        self.hh_weights = [[self.get_weight(i, j, 1) for j in range(hidden_2_size)]
                            for i in range(hidden_1_size)]
-        self.ho_weights = [[(2 * random()) - 1 for j in range(len(self.names))]
+        self.ho_weights = [[self.get_weight(i, j, 2) for j in range(len(self.names))]
                            for i in range(hidden_2_size)]
 
     def multiplication(self, i, j, filter):
@@ -215,6 +290,9 @@ class CNNSearch():
             for i in range(len(image_list)):
                 print(i, j)
                 self.training(image_list[i], answers_list[i])
+
+        self.db_update()
+        self.commit()
 
     def get_result(self, image):
         self.setup_image(image)

@@ -29,6 +29,7 @@ for s in range(len(image_list)):
         image[i][j] = int(image_list[s][k]) / 255
     images_list.append(image)
 
+db_name = 'weights.db'
 names = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 image_size = 28
 filter_size = 5
@@ -36,9 +37,9 @@ filters_quantity = 10
 pooling_size = 2
 hidden_1_size = 600
 hidden_2_size = 400
-n = 5
+n = 2
 cnn = CNNClass.CNNSearch(
-    image_size, names, filter_size, filters_quantity, pooling_size, hidden_1_size, hidden_2_size
+    image_size, names, filter_size, filters_quantity, pooling_size, hidden_1_size, hidden_2_size, db_name
 )
 cnn.training_set(images_list, answers_list, n)
 
